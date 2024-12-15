@@ -189,13 +189,9 @@ def crawl():
 
     logging.info("crawling")
 
-    """
     temi=["economia-e-finanze", "governo-e-settore-pubblico", "popolazione-e-societa", 
     "istruzione-cultura-e-sport", "ambiente", "trasporti", "regioni-e-citta", "salute",
     "scienza-e-tecnologia", "giustizia"]
-    """
-
-    temi=["ambiente", "giustizia"]
 
     if os.path.exists(file_path_G):
         os.remove(file_path_G)
