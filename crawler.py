@@ -1,9 +1,12 @@
 import os
 import re
 import requests
-import csv
 import logging
 from lxml import html
+import pandas as pd
+
+# Initialize list to store CSV entries
+csv_entries = []
 
 def record_dataset( dataset_url ):
     global tema_G
@@ -16,7 +19,12 @@ def record_dataset( dataset_url ):
     xpath_file_url = '//*[@id="content"]//div[@class="btn-group"]//a/@href'
     xpath_format =   '//td[contains(translate(../th/text(),"abcdefghijklmnopqrstuvwxyz", "ABCDEFGHIJKLMNOPQRSTUVWXYZ"),"FORMAT")]/text()'
 
-    response = requests.get(dataset_url)
+    try:
+        response = requests.get(dataset_url)
+    except Exception as e:
+        logging.error(f"Error {dataset_url}: {e}")
+        return
+    
     tree = html.fromstring(response.content)
 
     title_list = tree.xpath( xpath_title )
@@ -39,11 +47,18 @@ def record_dataset( dataset_url ):
         error = True
         logging.error(f"Error: {e}")
 
-    csvEntry = [ tema_G, current_pagedataset_url_G, current_dataset_name_G, current_note_G, title, format.lower(), file_url ]
+    csv_entry = [
+        tema_G,
+        current_pagedataset_url_G,
+        current_dataset_name_G,
+        current_note_G,
+        title,
+        format.lower(),
+        file_url
+    ]
     
-    with open(file_path_G, 'a', newline='') as csvfile:
-        writer = csv.writer(csvfile, delimiter='|#|')
-        writer.writerow(csvEntry)
+    # Append the entry to the csv_entries list
+    csv_entries.append(csv_entry)
 
 """
     if not error:
@@ -78,6 +93,7 @@ current_pagedataset_url_G = ""
 
 def inspect_page_dataset( pagedataset_url ):
     global current_note_G
+    global current_dataset_name_G
     global current_pagedataset_url_G
 
     current_pagedataset_url_G = pagedataset_url
@@ -86,7 +102,12 @@ def inspect_page_dataset( pagedataset_url ):
 
     logging.info(f">>> {pagedataset_url}")
     
-    response = requests.get(pagedataset_url)
+    try:
+        response = requests.get(pagedataset_url)
+    except Exception as e:
+        logging.error(f"Error {pagedataset_url}: {e}")
+        return dataset_urls
+
     tree = html.fromstring(response.content)
 
     xpath_dataset_name = '//*[@id="content"]//article/div[@class="module-content"]/h1/text()'
@@ -117,7 +138,13 @@ def inspect_page_dataset( pagedataset_url ):
 
 
 def inspect_tema_page( url ):
-    response = requests.get(url)
+    
+    try:
+        response = requests.get(url)
+    except Exception as e:
+        logging.error(f"Error {url}: {e}")
+        return []
+
     tree = html.fromstring(response.content)
 
     #xpath='//*[@id="content"]//div/ul/li[class="dataset-item"]'
@@ -186,6 +213,20 @@ def crawl():
             for dataset_url in dataset_urls:
                 udataset_url_abs = f"{main_url_G}{dataset_url}"
                 record_dataset( udataset_url_abs )
+
+    # After crawling, create a DataFrame and write to CSV
+    df = pd.DataFrame(csv_entries, columns=[
+        'Tema',
+        'Pagedataset URL',
+        'Dataset Name',
+        'Note',
+        'Title',
+        'Format',
+        'File URL'
+    ])
+
+    # Write to CSV with '|#|' as separator
+    df.to_csv(file_path_G, sep='|#|', index=False)
 
 
 if __name__ == "__main__":
