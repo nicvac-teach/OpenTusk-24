@@ -1,133 +1,107 @@
 import os
+import re
 import requests
+import logging
 from lxml import html
+import pandas as pd
 
-def download_dataset( dataset_url ):
+csv_entries = []
 
-    xpath_title =    '//*[@id="content"]//h2[@class="page-heading"]/text()'
-    xpath_file_url = '//*[@id="content"]//div[@class="btn-group"]//a/@href'
-    xpath_format =   '//td[contains(translate(../th/text(),"abcdefghijklmnopqrstuvwxyz", "ABCDEFGHIJKLMNOPQRSTUVWXYZ"),"FORMAT")]/text()'
+def crawler_download( dataset_url ):
+    global file_path_G
 
-    response = requests.get(dataset_url)
-    tree = html.fromstring(response.content)
+    # Read the CSV with '|#|' as a separator using regex
+    df = pd.read_csv(file_path_G, sep=r'\|#\|', engine='python')
 
-    title_list = tree.xpath( xpath_title )
-    file_url_list = tree.xpath( xpath_file_url )
-    format_list = tree.xpath( xpath_format ) 
+    # Iterate over the rows of the DataFrame
+    for index, row in df.iterrows():
+        tema = row[0]
+        current_pagedataset_url = row[1]
+        current_dataset_name = row[2]
+        current_note = row[3]
+        title = row[4]
+        format = row[5]
+        file_url = row[6]
 
-    print("---", title_list)
-    print("---", file_url_list)
-    print("---", format_list)
+        error = ( title=="" or format=="" or file_url=="" )
 
-    #Upper format
-    format_list = [fmt.upper() for fmt in format_list]
-    
-    error = False
-    try:
-        title = title_list[0]
-        file_url = file_url_list[0]
-        format = format_list[0]
-    except Exception as e:
-        error = True
-        print(f"Error: {e}")
+        fmt = format.upper()
 
-    if not error:
-        if any( ('CSV' in fmt or 'XLS' in fmt or 'JSON' == fmt or 'XML' == fmt )\
-                for fmt in format_list ):
+        downloded = False
+
+        if not error:
+            if ('CSV' in fmt or 'XLS' in fmt or 'JSON' == fmt or 'XML' == fmt ):
+                logging.info(f"url: {file_url}")
+                logging.info(f"Downloading...")
+                try:
+                    response = requests.get(file_url)
+                except Exception as e:
+                    logging.error(f"Error {file_url}: {e}")
+                    return
+                
+                #if exists, ignore
+                os.makedirs(f"downl/{tema}", exist_ok=True)
+
+                filename = f"downl/{tema}/{title}.{format.lower()}"
+
+                #if filename exists, create a new name
+                i = 1
+                while os.path.exists(filename):
+                    filename = f"downl/{tema}/{title}_{i:03}.{format.lower()}"
+                    i += 1
+
+                with open( filename, 'wb') as f:
+                    f.write(response.content)
+                
+                downloded = True
             
-            print("Downloading...")
-            try:
-                response = requests.get(file_url)
-            except Exception as e:
-                print(f"Error: {e}")
-                return
+            logging.info("--------------------------------------------------")
 
-            filename = f"downl/{title}.{format.lower()}"
+        csv_entry = [
+            tema,
+            current_pagedataset_url,
+            current_dataset_name,
+            current_note,
+            title,
+            format,
+            file_url,
+            downloded
+        ]
 
-            #if filename exists, create a new name
-            i = 1
-            while os.path.exists(filename):
-                filename = f"downl/{title}_{i:03}.{format.lower()}"
-                i += 1
+        # Append the entry to the csv_entries list
+        csv_entries.append(csv_entry)
 
-            with open( filename, 'wb') as f:
-                f.write(response.content)
-        else:
-            print("Skipping...")
-        print("--------------------------------------------------")
+    # After crawling, create a DataFrame and write to CSV
+    df = pd.DataFrame(csv_entries, columns=[
+        'Tema',
+        'Pagedataset URL',
+        'Dataset Name',
+        'Note',
+        'Title',
+        'Format',
+        'File URL',
+        'Downloaded'
+    ])
 
-
-
-def inspect_page_dataset( pagedataset_url ):
-
-    dataset_urls = []
-
-    print(">>>", pagedataset_url)
-    
-    response = requests.get(pagedataset_url)
-    tree = html.fromstring(response.content)
-
-    xpath='//*[@id="dataset-resources"]//li[@class="resource-item"]/a/@href'
-    elements = tree.xpath( xpath )
-
-    dataset_urls.extend(elements)
-
-    return dataset_urls
+    # Write to CSV with '|#|' as separator
+    df.to_csv(file_path_G+"_report.csv", sep='|#|', index=False)
 
 
-def inspect_tema_page( url ):
-    response = requests.get(url)
-    tree = html.fromstring(response.content)
-
-    #xpath='//*[@id="content"]//div/ul/li[class="dataset-item"]'
-    xpath='//*[@id="content"]//div/ul/li[@class="dataset-item"]//h2[@class="card-title"]/a/@href'
-
-    elements = tree.xpath( xpath )
-    return elements
-
-
-def inspect_tema( tema_url ):
-    pagedataset_urls = []
-    for p in range(1, 101):
-        url = f"{tema_url}?page={p}"
-        print("##########",url)
-
-        elements = inspect_tema_page( url )
-        if len(elements) == 0:
-            break
-        else:
-            pagedataset_urls.extend(elements)
-    return pagedataset_urls
 
 ################################################################################
-main_url_G = "https://dati.puglia.it"
+file_path_G = 'record_dataset.csv'
 
-tema_G = "ambiente"
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler('crawler_download.log'),
+        logging.StreamHandler()
+    ]
+)
 
-def crawl():
-    global main_url_G
-    global tema_G
-    
-    print("crawling")
-
-    temi=["economia-e-finanze", "governo-e-settore-pubblico", "popolazione-e-societa", 
-    "istruzione-cultura-e-sport", "ambiente", "trasporti", "regioni-e-citta", "salute",
-    "scienza-e-tecnologia", "giustizia"]
-
-    for tema in temi:
-        tema_G = tema
-        url = f"{main_url_G}/ckan/group/{tema}"
-        pagedataset_urls = inspect_tema( url )
-
-    for pagedataset_url in pagedataset_urls:
-        #print(element.text_content())
-        pagedataset_url_abs = f"{main_url_G}{pagedataset_url}"
-        dataset_urls = inspect_page_dataset( pagedataset_url_abs )
-
-        for dataset_url in dataset_urls:
-            udataset_url_abs = f"{main_url_G}{dataset_url}"
-            download_dataset( udataset_url_abs )
 
 
 if __name__ == "__main__":
-    crawl()
+    crawler_download()

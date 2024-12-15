@@ -39,6 +39,9 @@ def record_dataset( dataset_url ):
     format_list = [fmt.upper() for fmt in format_list]
     
     error = False
+    title = ""
+    file_url = ""
+    format = ""
     try:
         title = title_list[0]
         file_url = file_url_list[0]
@@ -47,45 +50,22 @@ def record_dataset( dataset_url ):
         error = True
         logging.error(f"Error: {e}")
 
-    csv_entry = [
-        tema_G,
-        current_pagedataset_url_G,
-        current_dataset_name_G,
-        current_note_G,
-        title,
-        format.lower(),
-        file_url
-    ]
-    
-    # Append the entry to the csv_entries list
-    csv_entries.append(csv_entry)
-
-"""
     if not error:
-        if any( ('CSV' in fmt or 'XLS' in fmt or 'JSON' == fmt or 'XML' == fmt )\
-                for fmt in format_list ):
-            
-            logging.info("Downloading...")
-            try:
-                response = requests.get(file_url)
-            except Exception as e:
-                logging.error(f"Error: {e}")
-                return
+        csv_entry = [
+            tema_G,
+            current_pagedataset_url_G,
+            current_dataset_name_G,
+            current_note_G,
+            title,
+            format.lower(),
+            file_url
+        ]
+        
+        # Append the entry to the csv_entries list
+        csv_entries.append(csv_entry)
 
-            filename = f"downl/{title}.{format.lower()}"
 
-            #if filename exists, create a new name
-            i = 1
-            while os.path.exists(filename):
-                filename = f"downl/{title}_{i:03}.{format.lower()}"
-                i += 1
 
-            with open( filename, 'wb') as f:
-                f.write(response.content)
-        else:
-            logging.info("Skipping...")
-        logging.info("--------------------------------------------------")
-"""
 
 current_dataset_name_G = ""
 current_note_G = ""
