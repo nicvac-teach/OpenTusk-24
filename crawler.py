@@ -212,7 +212,7 @@ def crawl():
                     df_empty = pd.DataFrame(columns=csv_headers)
                     
                     # Write the empty DataFrame to CSV with headers
-                    df_empty.to_csv(file_path_G, index=False)
+                    df_empty.to_csv(file_path_G, sep='¥', index=False)
                     
                     logging.info(f"Initialized CSV file with headers at {file_path_G}")
 
