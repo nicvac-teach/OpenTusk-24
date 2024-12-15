@@ -5,3 +5,5 @@
 /downl*
 crawler.log
 record_dataset.csv
+crawler_download.log
+record_dataset_report.csv
