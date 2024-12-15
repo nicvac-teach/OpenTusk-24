@@ -5,8 +5,6 @@ import logging
 from lxml import html
 import pandas as pd
 
-# Initialize list to store CSV entries
-csv_entries = []
 
 def record_dataset( dataset_url ):
     global tema_G
@@ -14,6 +12,7 @@ def record_dataset( dataset_url ):
     global current_note_G
     global current_pagedataset_url_G
     global file_path_G
+    global csv_entries_G
 
     xpath_title =    '//*[@id="content"]//h2[@class="page-heading"]/text()'
     xpath_file_url = '//*[@id="content"]//div[@class="btn-group"]//a/@href'
@@ -58,11 +57,12 @@ def record_dataset( dataset_url ):
             current_note_G,
             title,
             format.lower(),
-            file_url
+            file_url,
+            False
         ]
         
         # Append the entry to the csv_entries list
-        csv_entries.append(csv_entry)
+        csv_entries_G.append(csv_entry)
 
 
 
@@ -162,6 +162,22 @@ logging.basicConfig(
     ]
 )
 
+
+# Initialize list to store CSV entries
+csv_entries_G = []
+
+# Define the CSV headers
+csv_headers = [
+    'Tema',
+    'Pagedataset URL',
+    'Dataset Name',
+    'Note',
+    'Title',
+    'Format',
+    'File URL',
+    'Downloaded'
+]
+
 def crawl():
     global main_url_G
     global file_path_G
@@ -190,19 +206,26 @@ def crawl():
                 udataset_url_abs = f"{main_url_G}{dataset_url}"
                 record_dataset( udataset_url_abs )
 
-    # After crawling, create a DataFrame and write to CSV
-    df = pd.DataFrame(csv_entries, columns=[
-        'Tema',
-        'Pagedataset URL',
-        'Dataset Name',
-        'Note',
-        'Title',
-        'Format',
-        'File URL'
-    ])
+                # Check if the CSV file exists
+                if not os.path.exists(file_path_G):
+                    # Create an empty DataFrame with headers
+                    df_empty = pd.DataFrame(columns=csv_headers)
+                    
+                    # Write the empty DataFrame to CSV with headers
+                    df_empty.to_csv(file_path_G, index=False)
+                    
+                    logging.info(f"Initialized CSV file with headers at {file_path_G}")
 
-    # Write to CSV with '|#|' as separator
-    df.to_csv(file_path_G, sep='|#|', index=False)
+                # Convert the entry to a DataFrame
+                df_entry = pd.DataFrame(csv_entries_G, columns=csv_headers)
+
+                # Append the entry to the CSV file
+                try:
+                    df_entry.to_csv(file_path_G, sep='¥', mode='a', header=False, index=False)
+                except Exception as e:
+                    logging.error(f"Failed to append entry to CSV: {e}")
+
+                csv_entries_G.clear()
 
 
 if __name__ == "__main__":

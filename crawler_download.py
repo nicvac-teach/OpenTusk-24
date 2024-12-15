@@ -22,14 +22,13 @@ def crawler_download( dataset_url ):
         title = row[4]
         format = row[5]
         file_url = row[6]
+        downloded = row[7]
 
         error = ( title=="" or format=="" or file_url=="" )
 
         fmt = format.upper()
 
-        downloded = False
-
-        if not error:
+        if not error and not downloded:
             if ('CSV' in fmt or 'XLS' in fmt or 'JSON' == fmt or 'XML' == fmt ):
                 logging.info(f"url: {file_url}")
                 logging.info(f"Downloading...")
