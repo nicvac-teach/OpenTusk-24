@@ -1,8 +1,16 @@
 import os
+import re
 import requests
+import csv
+import logging
 from lxml import html
 
-def download_dataset( dataset_url ):
+def record_dataset( dataset_url ):
+    global tema_G
+    global current_dataset_name_G
+    global current_note_G
+    global current_pagedataset_url_G
+    global file_path_G
 
     xpath_title =    '//*[@id="content"]//h2[@class="page-heading"]/text()'
     xpath_file_url = '//*[@id="content"]//div[@class="btn-group"]//a/@href'
@@ -15,9 +23,9 @@ def download_dataset( dataset_url ):
     file_url_list = tree.xpath( xpath_file_url )
     format_list = tree.xpath( xpath_format ) 
 
-    print("---", title_list)
-    print("---", file_url_list)
-    print("---", format_list)
+    logging.info(f"---{title_list}")
+    logging.info(f"---{file_url_list}")
+    logging.info(f"---{format_list}")
 
     #Upper format
     format_list = [fmt.upper() for fmt in format_list]
@@ -29,17 +37,24 @@ def download_dataset( dataset_url ):
         format = format_list[0]
     except Exception as e:
         error = True
-        print(f"Error: {e}")
+        logging.error(f"Error: {e}")
 
+    csvEntry = [ tema_G, current_pagedataset_url_G, current_dataset_name_G, current_note_G, title, format.lower(), file_url ]
+    
+    with open(file_path_G, 'a', newline='') as csvfile:
+        writer = csv.writer(csvfile, delimiter='|#|')
+        writer.writerow(csvEntry)
+
+"""
     if not error:
         if any( ('CSV' in fmt or 'XLS' in fmt or 'JSON' == fmt or 'XML' == fmt )\
                 for fmt in format_list ):
             
-            print("Downloading...")
+            logging.info("Downloading...")
             try:
                 response = requests.get(file_url)
             except Exception as e:
-                print(f"Error: {e}")
+                logging.error(f"Error: {e}")
                 return
 
             filename = f"downl/{title}.{format.lower()}"
@@ -53,22 +68,48 @@ def download_dataset( dataset_url ):
             with open( filename, 'wb') as f:
                 f.write(response.content)
         else:
-            print("Skipping...")
-        print("--------------------------------------------------")
+            logging.info("Skipping...")
+        logging.info("--------------------------------------------------")
+"""
 
-
+current_dataset_name_G = ""
+current_note_G = ""
+current_pagedataset_url_G = ""
 
 def inspect_page_dataset( pagedataset_url ):
+    global current_note_G
+    global current_pagedataset_url_G
+
+    current_pagedataset_url_G = pagedataset_url
 
     dataset_urls = []
 
-    print(">>>", pagedataset_url)
+    logging.info(f">>> {pagedataset_url}")
     
     response = requests.get(pagedataset_url)
     tree = html.fromstring(response.content)
 
-    xpath='//*[@id="dataset-resources"]//li[@class="resource-item"]/a/@href'
-    elements = tree.xpath( xpath )
+    xpath_dataset_name = '//*[@id="content"]//article/div[@class="module-content"]/h1/text()'
+    xpath_notes = '//*[@id="content"]//article/div[@class="module-content"]/div[1]'
+    xpath_datasets_urls='//*[@id="dataset-resources"]//li[@class="resource-item"]/a/@href'
+    
+    dataset_name = tree.xpath( xpath_dataset_name )
+    notes = tree.xpath( xpath_notes )
+    elements = tree.xpath( xpath_datasets_urls )
+
+    current_note_G = ""
+    try:
+        current_note_G = notes[0].text_content()
+        current_note_G = re.sub(r'^[^A-Za-z0-9]+|[^A-Za-z0-9]+$', '', current_note_G)
+    except Exception as e:
+        logging.error(f"Error: {e}")
+
+    current_dataset_name_G = ""
+    try:
+        current_dataset_name_G = dataset_name[0]
+        current_dataset_name_G = re.sub(r'^[^A-Za-z0-9]+|[^A-Za-z0-9]+$', '', current_dataset_name_G)
+    except Exception as e:
+        logging.error(f"Error: {e}")
 
     dataset_urls.extend(elements)
 
@@ -90,7 +131,7 @@ def inspect_tema( tema_url ):
     pagedataset_urls = []
     for p in range(1, 101):
         url = f"{tema_url}?page={p}"
-        print("##########",url)
+        logging.info(f"########## {url}")
 
         elements = inspect_tema_page( url )
         if len(elements) == 0:
@@ -100,28 +141,51 @@ def inspect_tema( tema_url ):
     return pagedataset_urls
 
 ################################################################################
-main_url = "https://dati.puglia.it"
+main_url_G = "https://dati.puglia.it"
+file_path_G = 'record_dataset.csv'
+tema_G = ""
 
-tema_G = "ambiente"
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler('crawler.log'),
+        logging.StreamHandler()
+    ]
+)
 
 def crawl():
+    global main_url_G
+    global file_path_G
     global tema_G
-    print("crawling")
 
-    temi=["ambiente"]
+    logging.info("crawling")
+
+    """
+    temi=["economia-e-finanze", "governo-e-settore-pubblico", "popolazione-e-societa", 
+    "istruzione-cultura-e-sport", "ambiente", "trasporti", "regioni-e-citta", "salute",
+    "scienza-e-tecnologia", "giustizia"]
+    """
+
+    temi=["ambiente", "giustizia"]
+
+    if os.path.exists(file_path_G):
+        os.remove(file_path_G)
+
     for tema in temi:
         tema_G = tema
-        url = f"{main_url}/ckan/group/{tema}"
+        url = f"{main_url_G}/ckan/group/{tema}"
         pagedataset_urls = inspect_tema( url )
 
-    for pagedataset_url in pagedataset_urls:
-        #print(element.text_content())
-        pagedataset_url_abs = f"{main_url}{pagedataset_url}"
-        dataset_urls = inspect_page_dataset( pagedataset_url_abs )
+        for pagedataset_url in pagedataset_urls:
+            #print(element.text_content())
+            pagedataset_url_abs = f"{main_url_G}{pagedataset_url}"
+            dataset_urls = inspect_page_dataset( pagedataset_url_abs )
 
-        for dataset_url in dataset_urls:
-            udataset_url_abs = f"{main_url}{dataset_url}"
-            download_dataset( udataset_url_abs )
+            for dataset_url in dataset_urls:
+                udataset_url_abs = f"{main_url_G}{dataset_url}"
+                record_dataset( udataset_url_abs )
 
 
 if __name__ == "__main__":

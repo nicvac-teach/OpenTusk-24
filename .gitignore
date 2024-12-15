@@ -2,3 +2,6 @@
 /_attic_
 /downl
 /downl01
+/downl*
+crawler.log
+record_dataset.csv
