@@ -23,7 +23,7 @@ def crawler_download():
     global file_path_in_G
     global file_path_out_G
 
-    # Read the CSV with '¥' as a separator using regex
+    # Read the CSV with '¥' as a separator
     df = pd.read_csv(file_path_in_G, sep='¥', engine='python')
 
     #Skip counter: to restore download. Number of record_dataset.csv already processed
