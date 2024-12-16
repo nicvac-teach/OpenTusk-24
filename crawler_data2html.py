@@ -4,6 +4,7 @@
 
 
 import glob
+from io import StringIO
 from json import detect_encoding
 import os
 from pathlib import Path
@@ -24,18 +25,28 @@ csv_headers = [
     'Downloaded'
 ]
 
-def byte_to_ascii(input_file, output_file):
-    try:
-        with open(input_file, 'rb') as binary_file:
-            byte_data = binary_file.read()
-            
-        ascii_data = byte_data.decode('ascii', errors='replace')
-        
-        with open(output_file, 'w') as text_file:
-            text_file.write(ascii_data)
-            
-    except Exception as e:
-        print(f"Error: byte_to_ascii: {e}")
+def clean_text(filepath):
+   """
+   Reads a file and returns string with only valid str characters
+   """
+   with open(filepath, 'rb') as f:
+       content = f.read()
+   try:
+       # Try UTF-8 first
+       return content.decode('utf-8')
+   except UnicodeDecodeError:
+       # Fallback: Replace invalid chars with ?
+       return content.decode('utf-8', errors='replace')   
+
+def byte_to_utf8(input_file, output_file):
+   with open(input_file, 'rb') as binary_file:
+       byte_data = binary_file.read()
+       
+   utf8_data = byte_data.decode('utf-8', errors='replace')
+   
+   with open(output_file, 'w', encoding='utf-8') as text_file:
+       text_file.write(utf8_data)
+
 
 def crawler_data2html():
     # Read the CSV with '¥' as a separator
@@ -121,13 +132,13 @@ def crawler_data2html():
                 #Insert a couple of rows of the csv file
                 if files[title].lower().endswith(".csv"):
                     #Convert to ascii (some files are binary...)
-                    file_ascii = files[title]+"_ascii_"
-                    byte_to_ascii(files[title], file_ascii)
-
-                    encoding = detect_encoding( file_ascii ) or 'latin1'
-                    df = pd.read_csv(file_ascii, engine='python', encoding=encoding)
+                    str = clean_text(files[title])
+                    df = pd.read_csv(StringIO(str), engine='python')
                 else:
-                    df = pd.read_excel(files[title])
+                    try:
+                        df = pd.read_excel(files[title], engine='openpyxl')
+                    except Exception as e:
+                        df = pd.read_excel(files[title], engine='xlrd')
             except Exception as e:
                 df = None
                 logging.error(f"Failed to read CSV {files[title]}: {e}")
