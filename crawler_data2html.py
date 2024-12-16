@@ -4,6 +4,7 @@
 
 
 import glob
+from json import detect_encoding
 import os
 from pathlib import Path
 import logging
@@ -23,6 +24,18 @@ csv_headers = [
     'Downloaded'
 ]
 
+def byte_to_ascii(input_file, output_file):
+    try:
+        with open(input_file, 'rb') as binary_file:
+            byte_data = binary_file.read()
+            
+        ascii_data = byte_data.decode('ascii', errors='replace')
+        
+        with open(output_file, 'w') as text_file:
+            text_file.write(ascii_data)
+            
+    except Exception as e:
+        print(f"Error: byte_to_ascii: {e}")
 
 def crawler_data2html():
     # Read the CSV with '¥' as a separator
@@ -86,7 +99,7 @@ def crawler_data2html():
             #Find downloaded files related to title.
             # Select only one, preferring csv format
             files[title] = ""
-            pattern = f".*{title}(_[[:digit:]]{3})?\.(csv|xls.?)$"
+            pattern = f".*{title}(_[0-9]{3})?\.(csv|xls.?)$"
             regex = re.compile(pattern, re.IGNORECASE)
             
             for filename in files_downl:
@@ -107,7 +120,12 @@ def crawler_data2html():
             try:
                 #Insert a couple of rows of the csv file
                 if files[title].lower().endswith(".csv"):
-                    df = pd.read_csv(files[title], sep='¥', engine='python')
+                    #Convert to ascii (some files are binary...)
+                    file_ascii = files[title]+"_ascii_"
+                    byte_to_ascii(files[title], file_ascii)
+
+                    encoding = detect_encoding( file_ascii ) or 'latin1'
+                    df = pd.read_csv(file_ascii, engine='python', encoding=encoding)
                 else:
                     df = pd.read_excel(files[title])
             except Exception as e:
