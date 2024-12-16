@@ -23,11 +23,19 @@ def crawler_download():
     global file_path_in_G
     global file_path_out_G
 
-    # Read the CSV with '|#|' as a separator using regex
+    # Read the CSV with '¥' as a separator using regex
     df = pd.read_csv(file_path_in_G, sep='¥', engine='python')
+
+    #Skip counter: to restore download. Number of record_dataset.csv already processed
+    skip_counter = 12548
+    curr_counter = 0
 
     # Iterate over the rows of the DataFrame
     for index, row in df.iterrows():
+        curr_counter += 1
+        if curr_counter <= skip_counter:
+            continue
+
         tema = row.iloc[0]
         current_pagedataset_url = row.iloc[1]
         current_dataset_name = row.iloc[2]
