@@ -60,6 +60,9 @@ def crawler_data2html():
     dataset_name_prev = "___"
 
     page=""
+    tab_inpage = 0
+    tab_inpage_max = 200
+
     for index, row in df.iterrows():
         tema = row.iloc[0]
         pagedataset_url = row.iloc[1]
@@ -71,17 +74,23 @@ def crawler_data2html():
         downloded = row.iloc[7]
 
         error = ( title=="" or format=="" or file_url=="" )
-
+        
         if not error and downloded:
             #New theme ==> new html file
-            if tema_prev != tema:
+            if tema_prev != tema or tab_inpage > tab_inpage_max:
+                new_page = True
+                if tema_prev != tema:
+                    page_num = 0
+
                 if page != "":
-                    with open(f'html/{tema_prev}.html', 'w') as file:
+                    with open(f'html/{tema_prev}_{page_num:003}.html', 'w') as file:
                         file.write(page)
                         file.close()
-                page = f"<h1>{tema}</h1>"
+                page = f"<h1>{tema} (parte {page_num+1})</h1>"
                 logging.info(f"Processing: {tema}")
-                iTema = 0
+
+                page_num += 1
+                tab_inpage = 0
 
                 #Load theme downloaded files
                 files_downl = []
@@ -89,14 +98,13 @@ def crawler_data2html():
                 for dirpath, dirnames, filenames in os.walk(root_dir):
                     files_downl = [ os.path.join(dirpath, filename) for filename in filenames]
                 numFiles = len(files_downl)
+            else:
+                new_page = False
 
             tema_prev = tema
-            iTema += 1
-            if iTema % 100 == 0:
-                logging.info(f"{iTema}/{numFiles}")
 
             #New dataset ==> New title
-            if dataset_name_prev != dataset_name:
+            if dataset_name_prev != dataset_name or new_page:
                 page += f"<h2>Nome Dataset</h2>"
                 page += f"<p>{dataset_name}</p>"
                 page += f"<h2>Descrizione Dataset</h2>"
@@ -124,6 +132,7 @@ def crawler_data2html():
             page += f"<h3>Nome Tabella</h3>"
             page += f"<p>{title}</p>"
             page += f"<h4>Tabella</h4>"
+            tab_inpage += 1
             if files[title] == "":
                 page += f"<p>dati mancanti</p>"
                 continue

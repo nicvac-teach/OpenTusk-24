@@ -4,8 +4,10 @@
 /downl01
 /downl*
 /html
+/md
 crawler.log
 crawler_download.log
 save01.zip
 crawler_data2html.log
-html.zip
+html*.zip
+md*.zip
